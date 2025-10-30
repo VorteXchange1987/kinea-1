@@ -1,0 +1,136 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+    margin: 0;
+    font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+    font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+}
+
+@layer base {
+    :root {
+        --background: 0 0% 6%;
+        --foreground: 0 0% 95%;
+        --card: 0 0% 8%;
+        --card-foreground: 0 0% 95%;
+        --popover: 0 0% 8%;
+        --popover-foreground: 0 0% 95%;
+        --primary: 0 0% 95%;
+        --primary-foreground: 0 0% 10%;
+        --secondary: 0 0% 15%;
+        --secondary-foreground: 0 0% 95%;
+        --muted: 0 0% 15%;
+        --muted-foreground: 0 0% 60%;
+        --accent: 0 0% 15%;
+        --accent-foreground: 0 0% 95%;
+        --destructive: 0 0% 30%;
+        --destructive-foreground: 0 0% 95%;
+        --border: 0 0% 20%;
+        --input: 0 0% 20%;
+        --ring: 0 0% 40%;
+        --radius: 0.75rem;
+    }
+}
+
+@layer base {
+    * {
+        @apply border-border;
+    }
+    body {
+        @apply bg-[#0a0a0a] text-foreground;
+    }
+}
+
+/* NEUMORPHISM UTILITIES */
+@layer utilities {
+    .neomorph {
+        background: #121212;
+        box-shadow: 8px 8px 16px #000000, -8px -8px 16px #1a1a1a;
+        border-radius: 12px;
+    }
+    
+    .neomorph-flat {
+        background: #121212;
+        box-shadow: 5px 5px 10px #000000, -5px -5px 10px #1a1a1a;
+        border-radius: 12px;
+    }
+    
+    .neomorph-inset {
+        background: #121212;
+        box-shadow: inset 6px 6px 12px #000000, inset -6px -6px 12px #1a1a1a;
+        border-radius: 12px;
+    }
+    
+    .neomorph-hover {
+        @apply transition-shadow duration-300;
+    }
+    
+    .neomorph-hover:hover {
+        box-shadow: inset 6px 6px 12px #000000, inset -6px -6px 12px #1a1a1a;
+    }
+    
+    .neomorph-btn {
+        background: #121212;
+        box-shadow: 6px 6px 12px #000000, -6px -6px 12px #1a1a1a;
+        border-radius: 12px;
+        @apply transition-all duration-300;
+    }
+    
+    .neomorph-btn:active,
+    .neomorph-btn.active {
+        box-shadow: inset 6px 6px 12px #000000, inset -6px -6px 12px #1a1a1a;
+    }
+    
+    .neomorph-input {
+        background: #0f0f0f;
+        box-shadow: inset 4px 4px 8px #000000, inset -4px -4px 8px #1a1a1a;
+        border-radius: 8px;
+    }
+    
+    .text-gradient {
+        background: linear-gradient(135deg, #ffffff 0%, #a0a0a0 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+}
+
+@layer base {
+    [data-debug-wrapper="true"] {
+        display: contents !important;
+    }
+
+    [data-debug-wrapper="true"] > * {
+        margin-left: inherit;
+        margin-right: inherit;
+        margin-top: inherit;
+        margin-bottom: inherit;
+        padding-left: inherit;
+        padding-right: inherit;
+        padding-top: inherit;
+        padding-bottom: inherit;
+        column-gap: inherit;
+        row-gap: inherit;
+        gap: inherit;
+        border-left-width: inherit;
+        border-right-width: inherit;
+        border-top-width: inherit;
+        border-bottom-width: inherit;
+        border-left-style: inherit;
+        border-right-style: inherit;
+        border-top-style: inherit;
+        border-bottom-style: inherit;
+        border-left-color: inherit;
+        border-right-color: inherit;
+        border-top-color: inherit;
+        border-bottom-color: inherit;
+    }
+}
