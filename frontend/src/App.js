@@ -16,6 +16,7 @@ import WatchPage from '@/pages/WatchPage';
 import AdminPanel from '@/pages/AdminPanel';
 import ModeratorPanel from '@/pages/ModeratorPanel';
 import ProfilePage from '@/pages/ProfilePage';
+import PublicProfilePage from '@/pages/PublicProfilePage';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -151,6 +152,7 @@ function App() {
               <Route path="/home" element={<HomePage />} />
               <Route path="/series/:seriesId" element={<SeriesDetailPage />} />
               <Route path="/watch/:episodeId" element={<WatchPage />} />
+              <Route path="/user/:userId" element={<PublicProfilePage />} />
               {/* Protected routes */}
               <Route path="/profile" element={user ? <ProfilePage /> : <Navigate to="/" />} />
               <Route 

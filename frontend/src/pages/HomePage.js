@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Navbar from '@/components/Navbar';
-import { Heart } from 'lucide-react';
+import { Heart, Filter, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/App';
 
@@ -16,9 +16,18 @@ const HomePage = () => {
   const [filteredSeries, setFilteredSeries] = useState([]);
   const [favorites, setFavorites] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // Filter states
+  const [showFilters, setShowFilters] = useState(false);
+  const [availableGenres, setAvailableGenres] = useState([]);
+  const [availableYears, setAvailableYears] = useState([]);
+  const [selectedGenre, setSelectedGenre] = useState('');
+  const [selectedYear, setSelectedYear] = useState('');
+  const [minRating, setMinRating] = useState('');
 
   useEffect(() => {
     fetchSeries();
+    fetchFilterOptions();
     if (isAuthenticated) {
       fetchFavorites();
     }
@@ -34,6 +43,16 @@ const HomePage = () => {
       toast.error('Diziler yüklenemedi');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchFilterOptions = async () => {
+    try {
+      const response = await axios.get(`${API}/series/filters`);
+      setAvailableGenres(response.data.genres || []);
+      setAvailableYears(response.data.years || []);
+    } catch (error) {
+      console.error('Failed to fetch filter options:', error);
     }
   };
 
@@ -60,6 +79,32 @@ const HomePage = () => {
     } catch (error) {
       console.error('Search failed:', error);
     }
+  };
+
+  const applyFilters = async () => {
+    try {
+      const params = new URLSearchParams();
+      if (selectedGenre) params.append('genre', selectedGenre);
+      if (selectedYear) params.append('year', selectedYear);
+      if (minRating) params.append('min_rating', minRating);
+
+      if (params.toString()) {
+        const response = await axios.get(`${API}/series/filter?${params.toString()}`);
+        setFilteredSeries(response.data);
+      } else {
+        setFilteredSeries(series);
+      }
+    } catch (error) {
+      console.error('Filter failed:', error);
+      toast.error('Filtreleme başarısız');
+    }
+  };
+
+  const clearFilters = () => {
+    setSelectedGenre('');
+    setSelectedYear('');
+    setMinRating('');
+    setFilteredSeries(series);
   };
 
   const toggleFavorite = async (seriesId, e) => {
@@ -94,7 +139,101 @@ const HomePage = () => {
       <Navbar onSearch={handleSearch} />
 
       <div className="container mx-auto px-4 py-8">
-        <h1 data-testid="page-title" className="text-3xl sm:text-4xl font-bold text-white mb-8">Diziler</h1>
+        <div className="flex items-center justify-between mb-8">
+          <h1 data-testid="page-title" className="text-3xl sm:text-4xl font-bold text-white">Diziler</h1>
+          
+          {/* Filter Toggle Button */}
+          <button
+            data-testid="filter-toggle-btn"
+            onClick={() => setShowFilters(!showFilters)}
+            className="neomorph-btn px-4 py-2 flex items-center gap-2 text-white"
+          >
+            <Filter className="w-5 h-5" />
+            <span>Filtrele</span>
+          </button>
+        </div>
+
+        {/* Filter Panel */}
+        {showFilters && (
+          <div data-testid="filter-panel" className="neomorph-flat p-6 mb-8 animate-in slide-in-from-top-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold text-white">Gelişmiş Filtreleme</h3>
+              <button
+                onClick={() => setShowFilters(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              {/* Genre Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Tür</label>
+                <select
+                  data-testid="genre-filter"
+                  value={selectedGenre}
+                  onChange={(e) => setSelectedGenre(e.target.value)}
+                  className="w-full neomorph-input px-4 py-2 text-white focus:outline-none"
+                >
+                  <option value="">Tüm Türler</option>
+                  {availableGenres.map((genre) => (
+                    <option key={genre} value={genre}>{genre}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Year Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Yıl</label>
+                <select
+                  data-testid="year-filter"
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(e.target.value)}
+                  className="w-full neomorph-input px-4 py-2 text-white focus:outline-none"
+                >
+                  <option value="">Tüm Yıllar</option>
+                  {availableYears.map((year) => (
+                    <option key={year} value={year}>{year}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Rating Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Minimum Puan</label>
+                <select
+                  data-testid="rating-filter"
+                  value={minRating}
+                  onChange={(e) => setMinRating(e.target.value)}
+                  className="w-full neomorph-input px-4 py-2 text-white focus:outline-none"
+                >
+                  <option value="">Tümü</option>
+                  <option value="7">7.0+</option>
+                  <option value="8">8.0+</option>
+                  <option value="9">9.0+</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                data-testid="apply-filters-btn"
+                onClick={applyFilters}
+                className="neomorph-btn px-6 py-2 text-white font-medium"
+              >
+                Filtreleri Uygula
+              </button>
+              <button
+                data-testid="clear-filters-btn"
+                onClick={clearFilters}
+                className="neomorph-btn px-6 py-2 text-gray-400 font-medium"
+              >
+                Temizle
+              </button>
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <div className="text-center py-20">
@@ -128,8 +267,14 @@ const HomePage = () => {
                   />
                 </div>
                 <h3 className="text-white font-semibold text-sm mb-1 truncate">{item.title}</h3>
-                {item.genre && (
-                  <p className="text-gray-400 text-xs truncate">{item.genre}</p>
+                <div className="flex items-center justify-between text-xs text-gray-400">
+                  {item.genre && <span className="truncate">{item.genre}</span>}
+                  {item.year && <span>{item.year}</span>}
+                </div>
+                {item.rating && (
+                  <div className="text-xs text-yellow-400 mt-1">
+                    ⭐ {item.rating.toFixed(1)}
+                  </div>
                 )}
 
                 {/* Favorite Button */}

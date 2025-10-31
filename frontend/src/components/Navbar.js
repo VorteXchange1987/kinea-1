@@ -29,7 +29,7 @@ const Navbar = ({ onSearch }) => {
           {/* Logo */}
           <Link to="/home" className="flex items-center">
             <img 
-              src="https://customer-assets.emergentagent.com/job_6fe398f4-61e4-451c-814f-579c21b513bf/artifacts/d5u0r8a4_kinealogo.png" 
+              src="/logo.png" 
               alt="KINEA Logo" 
               className="h-10 w-auto"
             />

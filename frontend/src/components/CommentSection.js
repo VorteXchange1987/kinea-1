@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '@/App';
 import { toast } from 'sonner';
-import { ThumbsUp, Reply, Pin, Trash2, Edit2, Shield } from 'lucide-react';
+import { ThumbsUp, Reply, Pin, Trash2, Shield } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
@@ -11,6 +12,7 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 const CommentSection = ({ episodeId }) => {
+  const navigate = useNavigate();
   const { user, token, isAuthenticated, isModerator, isAdmin } = useAuth();
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
@@ -130,12 +132,22 @@ const CommentSection = ({ episodeId }) => {
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-white font-semibold">{comment.username}</span>
-              {comment.user_role === 'SUPER_ADMIN' && (
-                <span className="admin-badge">Admin</span>
+              <button 
+                onClick={() => navigate(`/user/${comment.user_id}`)}
+                className="text-white font-semibold hover:text-gray-300 transition-colors"
+              >
+                {comment.username}
+              </button>
+              {(comment.user_role === 'SUPER_ADMIN' || comment.user_role === 'ADMIN') && (
+                <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-gradient-to-r from-yellow-500 to-orange-500 text-white flex items-center gap-1">
+                  <Shield className="w-3 h-3" />
+                  Kurucu
+                </span>
               )}
               {comment.user_role === 'MODERATOR' && (
-                <span className="moderator-badge">KINEA Yardımcısı</span>
+                <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-600 text-white">
+                  Moderatör
+                </span>
               )}
               {comment.is_pinned && (
                 <Pin className="w-4 h-4 text-gray-400" />
