@@ -18,7 +18,7 @@ import ModeratorPanel from '@/pages/ModeratorPanel';
 import ProfilePage from '@/pages/ProfilePage';
 import PublicProfilePage from '@/pages/PublicProfilePage';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const BACKEND_URL = "https://kinea-1.onrender.com";
 const API = `${BACKEND_URL}/api`;
 
 // Auth Context
